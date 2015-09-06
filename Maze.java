@@ -1,6 +1,4 @@
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * Created by Spencer on 9/5/2015.
@@ -10,13 +8,22 @@ import java.util.Scanner;
  */
 public class Maze {
 
-    public enum States { FREE, WALL, ADDEDWALL }
+    // possible states for a value within the matrix
+    public enum States { FREE, WALL, ADDEDWALL } // ., #, X
 
+    // nested helper class
     private static class Node {
         public boolean visited;
         public char value;
         public int x;
         public int y;
+
+        public Node(char value, int x, int y) {
+            this.visited = false;
+            this.value = value;
+            this.x = x;
+            this.y = y;
+        }
 
         public Node(boolean visited, char value, int x, int y) {
             this.visited = visited;
@@ -24,292 +31,185 @@ public class Maze {
             this.x = x;
             this.y = y;
         }
+
+        public boolean isFree() {
+            return this.value == '.';
+        }
+
+        @Override
+        public String toString() {
+            return "(" + x + ", " + y + ") " + value;
+        }
     }
 
-    public static void main(String[] args) {
+    public Node[][] matrix;
+    public ArrayList<Node> freeNodes = new ArrayList<>(250000);
+    public int remainingBoxes;
+    public int numRows;
+    public int numCols;
+
+    // construct maze based on user input
+    public Maze() {
+
         Scanner scan = new Scanner(System.in);
-        int rows = scan.nextInt();
-        int cols = scan.nextInt();
-        int ogBoxes = scan.nextInt();
+        numRows = scan.nextInt();
+        numCols = scan.nextInt();
+        remainingBoxes = scan.nextInt();
+        scan.nextLine();
 
-        Node[][] ogMaze = createMaze(new Node[rows][cols], scan);
-//        prettyMaze(addWalls(maze, boxes, 0, 0));
+        matrix = new Node[numRows][numCols];
 
-        for(int i = 0; i < ogMaze.length; i++) {
-            for(int j = 0; j < ogMaze[0].length; j++) {
-                System.out.println("i: " + i + "\tj: " + j);
+        for(int rowIndex = 0; rowIndex < matrix.length; rowIndex++) {
 
-                Node[][] maze = deepCopy(ogMaze);
-                int boxes = ogBoxes;
+            String line = scan.nextLine();
 
-                resetVisited(maze);
-                LinkedList<Node> list = getPath(maze, i, j, new LinkedList<>());
-
-                for (Node n : list) {
-                    if (boxes != 0 && n.value == '.') {
-                        n.value = 'X';
-                        boxes--;
-                    }
-                }
-
-                for(int k = 0; k < maze.length; k++) {
-                    for (int l = 0; l < maze[0].length; l++) {
-                        System.out.println("k: " + k + "\tl: " + l);
-
-                        resetVisited(maze);
-                        int c = isConnectedArea(maze, k, l)+1;
-                        resetVisited(maze);
-                        int g = getFreeSpaces(maze);
-
-                        System.out.println("c: " + c + "\tg: " + g);
-                        boolean connected = c == g;
-                        prettyMaze(maze);
-
-                        if (connected) {
-                            prettyMaze(maze);
-                            prettyList((list));
-                            System.exit(0);
-                        }
-                    }
-                }
+            for (int colIndex = 0; colIndex < matrix[0].length; colIndex++) {
+                Node n = new Node(line.charAt(colIndex), rowIndex, colIndex);
+                matrix[rowIndex][colIndex] = n;
+                if(n.isFree())  freeNodes.add(n);
             }
+
         }
-        System.out.println("couldn't find anything");
 
-//        System.out.println(isConnectedArea(ogMaze, 0, 0));
-
-        /*int moves = isConnectedArea(maze, 0, 1);
-        int spaces = getFreeSpaces(maze);
-        System.out.println(moves);
-        System.out.println(spaces);
-        System.out.println(moves == spaces);*/
-    }
-
-    private static void resetVisited(Node[][] maze) {
-        for(Node[] row : maze)
-            for(Node n : row)
-                n.visited = false;
-    }
-
-    private static Node[][] addWalls(Node[][] maze, int numWallsLeft, int currRow, int currCol) {
-
-        Node currNode = maze[currRow][currCol];
-        boolean pushed = false;
-
-        if(numWallsLeft == 0) {
-            System.out.println("all done");
+        // special optimized cases
+        if(freeNodes.size() == numRows * numCols) fillAllFree();
+        if(remainingBoxes == 0) {
+            System.out.println(this);
             System.exit(0);
-            return maze;
         }
-
-        // above
-        if(currRow != maze.length-1 && !maze[currRow + 1][currCol].visited && maze[currRow+1][currCol].value=='.') {
-
-            pushed = true;
-            Node[][] mazeCpy = deepCopy(maze);
-            mazeCpy[currRow+1][currCol].value = 'X';
-            if(isConnectedArea(mazeCpy, currRow+1, currCol) == getFreeSpaces(mazeCpy)) {
-                maze[currRow+1][currCol].value = 'X';
-//                prettyMaze(maze);
-                addWalls(maze, numWallsLeft-1, currRow+1, currCol);
-            } else {
-                addWalls(maze, numWallsLeft, currRow+1, currCol);
-            }
-
-        }
-
-        // below
-        if(currRow != 0 && !maze[currRow - 1][currCol].visited && maze[currRow-1][currCol].value=='.') {
-
-            pushed = true;
-            Node[][] mazeCpy = deepCopy(maze);
-            mazeCpy[currRow-1][currCol].value = 'X';
-            if(isConnectedArea(mazeCpy, currRow-1, currCol) == getFreeSpaces(mazeCpy)) {
-                maze[currRow-1][currCol].value = 'X';
-//                prettyMaze(maze);
-                addWalls(maze, numWallsLeft-1, currRow-1, currCol);
-            } else {
-                addWalls(maze, numWallsLeft, currRow-1, currCol);
-            }
-
-        }
-
-        // left
-        if(currCol != 0 && !maze[currRow][currCol-1].visited && maze[currRow][currCol-1].value=='.') {
-
-            pushed = true;
-            Node[][] mazeCpy = deepCopy(maze);
-            mazeCpy[currRow][currCol-1].value = 'X';
-            if(isConnectedArea(mazeCpy, currRow, currCol-1) == getFreeSpaces(mazeCpy)) {
-                maze[currRow][currCol-1].value = 'X';
-//                prettyMaze(maze);
-                addWalls(maze, numWallsLeft-1, currRow, currCol-1);
-            } else {
-                addWalls(maze, numWallsLeft, currRow, currCol-1);
-            }
-
-        }
-
-        // right
-        if(currCol != maze[0].length-1 && !maze[currRow][currCol+1].visited && maze[currRow][currCol+1].value=='.') {
-
-            pushed = true;
-            Node[][] mazeCpy = deepCopy(maze);
-            mazeCpy[currRow][currCol+1].value = 'X';
-            if(isConnectedArea(mazeCpy, currRow, currCol+1) == getFreeSpaces(mazeCpy)) {
-                maze[currRow][currCol+1].value = 'X';
-//                prettyMaze(maze);
-                addWalls(maze, numWallsLeft - 1, currRow, currCol+1);
-            } else {
-                addWalls(maze, numWallsLeft, currRow, currCol+1);
-            }
-
-        }
-
-        // finished visiting all neighbors
-        if(!pushed) {
-            currNode.visited = true;
-        }
-        return maze;
     }
 
-    private static Node[][] deepCopy(Node[][] values) {
+    // constructs maze based on arguments
+    public Maze(Node[][] matrix, ArrayList<Node> freeNodes, int remainingBoxes, int numRows, int cols) {
+        this.matrix = matrix;
+        this.freeNodes = freeNodes;
+        this.remainingBoxes = remainingBoxes;
+        this.numRows = numRows;
+        this.numCols = cols;
+    }
 
-        final Node[][] result = new Node[values.length][values[0].length];
-        for (int i = 0; i < values.length; i++) {
-            for(int j = 0; j < values[0].length; j++) {
-                Node ogNode = values[i][j];
+    public static final boolean debug = false;
+    public static final boolean db_isConnectedArea = false;
+
+    /** RUN PROGRAM!!!! **/
+    public static void main(String[] args) {
+
+        for(int i = 0; i<500; i++) {
+            for(int j = 0; j<500; j++) {
+                System.out.print(".");
+            }
+            System.out.println();
+        }
+
+        Maze maze = new Maze();
+
+        /** try random free spaces until it works **/
+        Random r = new Random();
+        int iterations = 0;
+        int limitIterations = 999999;
+        while(maze.remainingBoxes != 0 && iterations < limitIterations) {
+            iterations++;
+
+            Node availNode = maze.freeNodes.remove(r.nextInt(maze.freeNodes.size()));
+            availNode.value = 'X';
+
+            if(maze.isEverConnected()) {
+                --maze.remainingBoxes;
+                if(debug) {
+                    System.out.println("found one X");
+                    System.out.print(maze);
+                    System.out.println(maze.remainingBoxes - 1 + " boxes left");
+                }
+            } else {
+                maze.freeNodes.add(availNode);
+                availNode.value = '.';
+            }
+        }
+
+        if(maze.remainingBoxes == 0) System.out.print(maze);
+        else System.out.println("gave up");
+    }
+
+    public void fillAllFree() {
+
+        if(remainingBoxes == 0) {
+            System.out.print(this);
+            System.exit(0);
+        }
+
+        for(Node[] row : this.matrix)
+            for(Node n : row) {
+                n.value = 'X';
+                if(--this.remainingBoxes == 0) {
+                    System.out.print(this);
+                    System.exit(0);
+                }
+            }
+    }
+
+    private boolean isEverConnected() {
+        // try first free space to see if it's a connected area
+        int numSpaces = getFreeSpaces();
+        for(int i = 0; i < this.numRows; i++)
+            for(int j = 0; j < this.numCols; j++)
+                if((this.matrix[i][j].isFree())) {
+                    int conn = isConnectedArea(
+                            this.deepCopy(), i, j) + 1;
+                    return conn == numSpaces;
+                }
+        return false;
+    }
+
+    private Maze deepCopy() {
+        final Node[][] result = new Node[this.matrix.length][this.matrix[0].length];
+        for (int i = 0; i < this.matrix.length; i++) {
+            for(int j = 0; j < this.matrix[0].length; j++) {
+                Node ogNode = this.matrix[i][j];
                 result[i][j] = new Node(ogNode.visited, ogNode.value, ogNode.x, ogNode.y);
             }
         }
-        return result;
-    }
-
-    private static void prettyList(LinkedList<Node> list) {
-        for(Node n : list) {
-            System.out.println(n.value + " (" + n.x + ", " + n.y + ") ");
-        }
-        System.out.println();
+        return new Maze(result, this.freeNodes, this.remainingBoxes, this.numRows, this.numCols);
     }
 
     // if you can reach all empty squares
-    private static LinkedList<Node> getPath(Node[][] maze, int currRow, int currCol, LinkedList<Node> currPath) {
+    private static int isConnectedArea(Maze maze, int currRow, int currCol) {
 
-        Node save = maze[currRow][currCol];
-        maze[currRow][currCol] = new Node(false, 'O', currRow, currCol);
-//        prettyMaze(maze);
-        maze[currRow][currCol] = save;
-
-        Node currNode = maze[currRow][currCol];
-        currNode.visited = true;
-
-        LinkedList<Node> currList = new LinkedList<>();
-        currList.add(currNode);
-//        prettyList(combine(currList, currPath));
-
-        LinkedList<Node> above = new LinkedList<>();
-        LinkedList<Node> below = new LinkedList<>();
-        LinkedList<Node> left = new LinkedList<>();
-        LinkedList<Node> right = new LinkedList<>();
-
-        currPath.add(currNode);
-//        prettyList(currPath);
-
-        // above
-        if (currRow != maze.length - 1 && !maze[currRow + 1][currCol].visited && maze[currRow + 1][currCol].value == '.') {
-            above = currPath;
-            getPath(maze, currRow + 1, currCol, currPath);
-        }
-
-        // below
-        if (currRow != 0 && !maze[currRow - 1][currCol].visited && maze[currRow - 1][currCol].value == '.') {
-            below = currPath;
-            getPath(maze, currRow - 1, currCol, currPath);
-        }
-
-        // left
-        if (currCol != 0 && !maze[currRow][currCol - 1].visited && maze[currRow][currCol - 1].value == '.') {
-            left = currPath;
-            getPath(maze, currRow, currCol - 1, currPath);
-        }
-
-        // right
-        if(currCol != maze[0].length-1 && !maze[currRow][currCol+1].visited && maze[currRow][currCol+1].value=='.') {
-            right = currPath;
-            getPath(maze, currRow, currCol + 1, currPath);
-        }
-
-        if(above.size() >= below.size() && above.size() >= left.size() && above.size() >= right.size()) return above;
-        if(below.size() >= above.size() && below.size() >= left.size() && below.size() >= right.size()) return below;
-        if(left.size() >= below.size() && left.size() >= above.size() && left.size() >= right.size()) return left;
-        if(right.size() >= below.size() && right.size() >= left.size() && right.size() >= above.size()) return right;
-
-        return currPath; // makes Java happy
-    }
-
-    public static LinkedList<Node> combine(LinkedList<Node> list1, LinkedList<Node> list2) {
-
-        for(Node element: list2)
-            list1.add(element);
-
-        return list1;
-    }
-
-    // if you can reach all empty squares
-    private static int isConnectedArea(Node[][] maze, int currRow, int currCol) {
-
-        if(maze[currRow][currCol].value!='.')
+        if(!maze.matrix[currRow][currCol].isFree())
             return 0;
 
-       /* Node save = maze[currRow][currCol];
-        maze[currRow][currCol] = new Node(false, 'O', currRow, currCol);
-        System.out.println("isconnectedarea");
-        prettyMaze(maze);
-        maze[currRow][currCol] = save;*/
+        if(debug && db_isConnectedArea) {
+            Node save = maze.matrix[currRow][currCol];
+            maze.matrix[currRow][currCol] = new Node('O', currRow, currCol);
+            System.out.println("isConnectedArea");
+            System.out.print(maze);
+            maze.matrix[currRow][currCol] = save;
+        }
 
-        Node currNode = maze[currRow][currCol];
+        Node currNode = maze.matrix[currRow][currCol];
         currNode.visited = true;
         int seenNodes = 0;
 
-        // above
-        if(currRow != maze.length-1 && !maze[currRow+1][currCol].visited && maze[currRow+1][currCol].value=='.')
+        // below
+        if(currRow != maze.numRows-1 && !maze.matrix[currRow+1][currCol].visited && maze.matrix[currRow+1][currCol].value=='.')
             seenNodes += isConnectedArea(maze, currRow+1, currCol)+1;
 
-        // below
-        if(currRow != 0 && !maze[currRow-1][currCol].visited && maze[currRow-1][currCol].value=='.')
+        // above
+        if(currRow != 0 && !maze.matrix[currRow-1][currCol].visited && maze.matrix[currRow-1][currCol].value=='.')
             seenNodes += isConnectedArea(maze, currRow-1, currCol)+1;
 
         // left
-        if(currCol != 0 && !maze[currRow][currCol-1].visited && maze[currRow][currCol-1].value=='.')
+        if(currCol != 0 && !maze.matrix[currRow][currCol-1].visited && maze.matrix[currRow][currCol-1].value=='.')
             seenNodes += isConnectedArea(maze, currRow, currCol - 1)+1;
 
         // right
-        if(currCol != maze[0].length-1 && !maze[currRow][currCol+1].visited && maze[currRow][currCol+1].value=='.')
+        if(currCol != maze.numCols-1 && !maze.matrix[currRow][currCol+1].visited && maze.matrix[currRow][currCol+1].value=='.')
             seenNodes += isConnectedArea(maze, currRow, currCol+1)+1;
 
         return seenNodes;
     }
 
-    private static int getFreeSpaces(Node[][] maze) {
-        int freeSpaces = 0;
-        for(Node[] row : maze)
-            for(Node n : row)
-                if(getState(n.value) == States.FREE)
-                    freeSpaces++;
-        return freeSpaces;
-    }
-
-    // if there is a wall or boundary on all sides
-    private static boolean isSurrounded(Node[][] maze, int rowIndex, int colIndex) {
-        return  (rowIndex==0                || isWall(maze, rowIndex-1, colIndex)) &&  // up
-                (colIndex==maze[0].length-1 || isWall(maze, rowIndex, colIndex+1)) &&  // right
-                (rowIndex==maze.length-1    || isWall(maze, rowIndex+1, colIndex)) &&  // down
-                (colIndex==0                || isWall(maze, rowIndex, colIndex-1));      // left
-    }
-
-    private static boolean isWall(Node[][] maze, int row, int col) {
-        return getState(maze[row][col].value) == States.WALL || getState(maze[row][col].value) == States.ADDEDWALL;
-    }
+    // get number of free nodes
+    private int getFreeSpaces() { return freeNodes.size(); }
 
     private static States getState(char c) {
         switch(c) {
@@ -322,25 +222,16 @@ public class Maze {
         return null;
     }
 
-    private static Node[][] createMaze(Node[][] maze, Scanner scan) {
-        scan.nextLine();
-        for(int rowIndex = 0; rowIndex < maze.length; rowIndex++) {
-            String line = scan.nextLine();
-            for (int colIndex = 0; colIndex < maze[0].length; colIndex++) {
-                maze[rowIndex][colIndex] = new Node(false, line.charAt(colIndex), rowIndex, colIndex);
+    @Override
+    public String toString() {
+        String output = "";
+        for(int rowIndex = 0; rowIndex < matrix.length; rowIndex++) {
+            for(int colIndex = 0; colIndex < matrix[0].length; colIndex++) {
+                output += matrix[rowIndex][colIndex].value;
             }
+            if(rowIndex < matrix.length-1) output += "\n";
         }
-        return maze;
-    }
-
-    private static void prettyMaze(Node[][] maze) {
-        for(int rowIndex = 0; rowIndex < maze.length; rowIndex++) {
-            for(int colIndex = 0; colIndex < maze[0].length; colIndex++) {
-                System.out.print(maze[rowIndex][colIndex].value);
-            }
-            if(rowIndex < maze.length-1) System.out.println();
-        }
-        System.out.println();
-        System.out.println();
+        if(debug) output += "\n\n";
+        return output;
     }
 }

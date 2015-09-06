@@ -1,0 +1,164 @@
+// backup methods
+
+import java.util.LinkedList;
+
+/**
+ * Created by Spencer on 9/6/2015.
+ */
+public class MazeBackup {
+
+
+
+    // if you can reach all empty squares
+    private static LinkedList<Node> getPath(Node[][] maze, int currRow, int currCol, LinkedList<Node> currPath) {
+
+        Node save = maze[currRow][currCol];
+        maze[currRow][currCol] = new Node('O', currRow, currCol);
+        maze[currRow][currCol] = save;
+
+        Node currNode = maze[currRow][currCol];
+        currNode.visited = true;
+
+        LinkedList<Node> currList = new LinkedList<>();
+        currList.add(currNode);
+
+        LinkedList<Node> above = new LinkedList<>();
+        LinkedList<Node> below = new LinkedList<>();
+        LinkedList<Node> left = new LinkedList<>();
+        LinkedList<Node> right = new LinkedList<>();
+
+        currPath.add(currNode);
+
+        // above
+        if (currRow != maze.length - 1 && !maze[currRow + 1][currCol].visited && maze[currRow + 1][currCol].value == '.') {
+            above = currPath;
+            getPath(maze, currRow + 1, currCol, currPath);
+        }
+
+        // below
+        if (currRow != 0 && !maze[currRow - 1][currCol].visited && maze[currRow - 1][currCol].value == '.') {
+            below = currPath;
+            getPath(maze, currRow - 1, currCol, currPath);
+        }
+
+        // left
+        if (currCol != 0 && !maze[currRow][currCol - 1].visited && maze[currRow][currCol - 1].value == '.') {
+            left = currPath;
+            getPath(maze, currRow, currCol - 1, currPath);
+        }
+
+        // right
+        if(currCol != maze[0].length-1 && !maze[currRow][currCol+1].visited && maze[currRow][currCol+1].value=='.') {
+            right = currPath;
+            getPath(maze, currRow, currCol + 1, currPath);
+        }
+
+        if(above.size() >= below.size() && above.size() >= left.size() && above.size() >= right.size()) return above;
+        if(below.size() >= above.size() && below.size() >= left.size() && below.size() >= right.size()) return below;
+        if(left.size() >= below.size() && left.size() >= above.size() && left.size() >= right.size()) return left;
+        if(right.size() >= below.size() && right.size() >= left.size() && right.size() >= above.size()) return right;
+
+        return currPath; // makes Java happy
+    }
+
+
+
+    private static void prettyList(LinkedList<Node> list) {
+        for(Node n : list) {
+            System.out.println(n.value + " (" + n.x + ", " + n.y + ") ");
+        }
+        System.out.println();
+    }
+
+
+
+    private static Node[][] addWalls(Node[][] maze, int numWallsLeft, int currRow, int currCol) {
+
+        Node currNode = maze[currRow][currCol];
+        boolean pushed = false;
+
+        if(numWallsLeft == 0) {
+            System.out.println("all done");
+            System.exit(0);
+            return maze;
+        }
+
+        // above
+        if(currRow != maze.length-1 && !maze[currRow + 1][currCol].visited && maze[currRow+1][currCol].value=='.') {
+
+            pushed = true;
+            Node[][] mazeCpy = deepCopy(maze);
+            mazeCpy[currRow+1][currCol].value = 'X';
+            if(isConnectedArea(mazeCpy, currRow+1, currCol) == getFreeSpaces(mazeCpy)) {
+                maze[currRow+1][currCol].value = 'X';
+//                prettyMaze(maze);
+                addWalls(maze, numWallsLeft-1, currRow+1, currCol);
+            } else {
+                addWalls(maze, numWallsLeft, currRow+1, currCol);
+            }
+
+        }
+
+        // below
+        if(currRow != 0 && !maze[currRow - 1][currCol].visited && maze[currRow-1][currCol].value=='.') {
+
+            pushed = true;
+            Node[][] mazeCpy = deepCopy(maze);
+            mazeCpy[currRow-1][currCol].value = 'X';
+            if(isConnectedArea(mazeCpy, currRow-1, currCol) == getFreeSpaces(mazeCpy)) {
+                maze[currRow-1][currCol].value = 'X';
+//                prettyMaze(maze);
+                addWalls(maze, numWallsLeft-1, currRow-1, currCol);
+            } else {
+                addWalls(maze, numWallsLeft, currRow-1, currCol);
+            }
+
+        }
+
+        // left
+        if(currCol != 0 && !maze[currRow][currCol-1].visited && maze[currRow][currCol-1].value=='.') {
+
+            pushed = true;
+            Node[][] mazeCpy = deepCopy(maze);
+            mazeCpy[currRow][currCol-1].value = 'X';
+            if(isConnectedArea(mazeCpy, currRow, currCol-1) == getFreeSpaces(mazeCpy)) {
+                maze[currRow][currCol-1].value = 'X';
+//                prettyMaze(maze);
+                addWalls(maze, numWallsLeft-1, currRow, currCol-1);
+            } else {
+                addWalls(maze, numWallsLeft, currRow, currCol-1);
+            }
+
+        }
+
+        // right
+        if(currCol != maze[0].length-1 && !maze[currRow][currCol+1].visited && maze[currRow][currCol+1].value=='.') {
+
+            pushed = true;
+            Node[][] mazeCpy = deepCopy(maze);
+            mazeCpy[currRow][currCol+1].value = 'X';
+            if(isConnectedArea(mazeCpy, currRow, currCol+1) == getFreeSpaces(mazeCpy)) {
+                maze[currRow][currCol+1].value = 'X';
+//                prettyMaze(maze);
+                addWalls(maze, numWallsLeft - 1, currRow, currCol+1);
+            } else {
+                addWalls(maze, numWallsLeft, currRow, currCol+1);
+            }
+
+        }
+
+        // finished visiting all neighbors
+        if(!pushed) {
+            currNode.visited = true;
+        }
+        return maze;
+    }
+
+
+
+    private static void resetVisited(Node[][] maze) {
+        for(Node[] row : maze)
+            for(Node n : row)
+                n.visited = false;
+    }
+}
