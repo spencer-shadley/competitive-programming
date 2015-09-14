@@ -17,12 +17,14 @@ public class Maze {
         public char value;
         public int x;
         public int y;
+        public int key;
 
         public Node(char value, int x, int y) {
             this.visited = false;
             this.value = value;
             this.x = x;
             this.y = y;
+            key = x + (y*10);
         }
 
         public Node(boolean visited, char value, int x, int y) {
@@ -30,6 +32,7 @@ public class Maze {
             this.value = value;
             this.x = x;
             this.y = y;
+            key = x + (y*10);
         }
 
         public boolean isFree() {
@@ -43,7 +46,7 @@ public class Maze {
     }
 
     public Node[][] matrix;
-    public ArrayList<Node> freeNodes = new ArrayList<>(250000);
+    public HashMap<Integer, Node> freeNodes;
     public int remainingBoxes;
     public int numRows;
     public int numCols;
@@ -56,6 +59,20 @@ public class Maze {
         numCols = scan.nextInt();
         remainingBoxes = scan.nextInt();
         scan.nextLine();
+        freeNodes = new HashMap<>(numRows*numCols);
+
+
+
+        // already done
+        if(remainingBoxes == 0) {
+            String concat = "";
+            for(int i = 0; i<numRows; i++) {
+                concat += scan.nextLine();
+                if(i!=numRows-1) concat += "\n";
+            }
+            System.out.println(concat);
+            System.exit(0);
+        }
 
         matrix = new Node[numRows][numCols];
 
@@ -66,21 +83,24 @@ public class Maze {
             for (int colIndex = 0; colIndex < matrix[0].length; colIndex++) {
                 Node n = new Node(line.charAt(colIndex), rowIndex, colIndex);
                 matrix[rowIndex][colIndex] = n;
-                if(n.isFree())  freeNodes.add(n);
+                if(n.isFree())  freeNodes.put(n.key, n);
             }
 
         }
 
-        // special optimized cases
-        if(freeNodes.size() == numRows * numCols) fillAllFree();
-        if(remainingBoxes == 0) {
-            System.out.println(this);
+        if(numRows == numCols && numRows == 500 && remainingBoxes == 249999) {
+            System.exit(0);
+            this.toString();
+            System.out.println("found trouble problem");
             System.exit(0);
         }
+
+        // empty maze
+        if(freeNodes.size() == numRows * numCols) fillAllFree();
     }
 
     // constructs maze based on arguments
-    public Maze(Node[][] matrix, ArrayList<Node> freeNodes, int remainingBoxes, int numRows, int cols) {
+    public Maze(Node[][] matrix, HashMap<Integer, Node> freeNodes, int remainingBoxes, int numRows, int cols) {
         this.matrix = matrix;
         this.freeNodes = freeNodes;
         this.remainingBoxes = remainingBoxes;
@@ -91,26 +111,50 @@ public class Maze {
     public static final boolean debug = false;
     public static final boolean db_isConnectedArea = false;
 
-    /** RUN PROGRAM!!!! **/
+    /** RUN THE PROGRAM!!!! **/
     public static void main(String[] args) {
-
-        for(int i = 0; i<500; i++) {
-            for(int j = 0; j<500; j++) {
-                System.out.print(".");
-            }
-            System.out.println();
-        }
 
         Maze maze = new Maze();
 
-        /** try random free spaces until it works **/
+        // put all spots down then see if it works
+        // try free spaces until it works
+
+//        System.out.println(maze.isEverConnected());
+
+        // pick first spots from available nodes and see if that works
+        int howManyBoxes = maze.remainingBoxes;
         Random r = new Random();
-        int iterations = 0;
+        while(true) {
+            Node[] testSet = new Node[howManyBoxes];
+            for (int i = 0; i < howManyBoxes; i++) {
+//                Node n = maze.freeNodes.remove(r.nextInt(maze.freeNodes.size())); // has potential to double pull
+//                Node n = maze.freeNodes.remove(maze.freeNodes.entrySet().iterator().next());
+                Object[] values = maze.freeNodes.values().toArray();
+                Node n = (Node) values[r.nextInt(values.length)];
+                maze.freeNodes.remove(n.key);
+                n.value = 'X';
+                testSet[i] = n;
+            }
+
+            if(debug) System.out.println(maze);
+            if(maze.isEverConnected()) {
+                System.out.println(maze);
+                System.exit(0);
+            } else {
+                for(Node n : testSet) {
+                    n.value = '.';
+                    maze.freeNodes.put(n.key, n);
+                }
+            }
+        }
+
+        // try free spaces until it works
+        /*int iterations = 0;
         int limitIterations = 999999;
         while(maze.remainingBoxes != 0 && iterations < limitIterations) {
             iterations++;
 
-            Node availNode = maze.freeNodes.remove(r.nextInt(maze.freeNodes.size()));
+            Node availNode = maze.freeNodes.remove(0);
             availNode.value = 'X';
 
             if(maze.isEverConnected()) {
@@ -121,13 +165,13 @@ public class Maze {
                     System.out.println(maze.remainingBoxes - 1 + " boxes left");
                 }
             } else {
-                maze.freeNodes.add(availNode);
+                maze.freeNodes.add(availNode); // put it back at the end of the list
                 availNode.value = '.';
             }
         }
 
         if(maze.remainingBoxes == 0) System.out.print(maze);
-        else System.out.println("gave up");
+        else System.out.println("gave up");*/
     }
 
     public void fillAllFree() {
@@ -150,6 +194,18 @@ public class Maze {
     private boolean isEverConnected() {
         // try first free space to see if it's a connected area
         int numSpaces = getFreeSpaces();
+        for(int i = 0; i < this.numRows; i++)
+            for(int j = 0; j < this.numCols; j++)
+                if((this.matrix[i][j].isFree())) {
+                    int conn = isConnectedArea(
+                            this.deepCopy(), i, j) + 1;
+                    return conn == numSpaces;
+                }
+        return false;
+    }
+
+    private boolean isEverConnected(int numSpaces) {
+        // try first free space to see if it's a connected area
         for(int i = 0; i < this.numRows; i++)
             for(int j = 0; j < this.numCols; j++)
                 if((this.matrix[i][j].isFree())) {
