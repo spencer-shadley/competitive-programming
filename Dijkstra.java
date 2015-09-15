@@ -1,5 +1,4 @@
-import java.util.ArrayList;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * Created by Spencer on 9/13/2015.
@@ -9,7 +8,7 @@ import java.util.Scanner;
  */
 public class Dijkstra {
 
-    public ArrayList<Node> nodeList;
+    public HashMap<Integer, Node> nodes = new HashMap<>(65536); // must be power of 2 (reduce required resizes)
 
     public static class Edge {
         public int cost;
@@ -19,13 +18,12 @@ public class Dijkstra {
             this.n = n;
             this.cost = cost;
         }
-
     }
 
-    public class Node {
+    public class Node implements Comparable<Node>{
         public boolean visited;
         public int cost;
-        public ArrayList<Edge> edges;
+        public ArrayList<Edge> edges = new ArrayList<>(128); // reduce required resizes
         public Node previous;
         public int name;
 
@@ -34,11 +32,15 @@ public class Dijkstra {
             this.cost = Integer.MAX_VALUE;
             this.name = name;
         }
-    }
 
+        public int compareTo(Node n) {
+            return Integer.compare(this.cost, n.cost);
+        }
+    }
 
     public static void main(String[] args) {
 
+        /** Read Input **/
         // construct graph
         Scanner scan = new Scanner(System.in);
         Dijkstra graph = new Dijkstra();
@@ -63,28 +65,86 @@ public class Dijkstra {
             n2.edges.add(new Edge(n1, cost));
         }
 
+        /** compute **/
+
+        // initial graph setup
+        Node start = graph.nodes.get(1);
+
+        try {
+            setPaths(start);
+        } catch (NullPointerException n) { // the start node isn't connected to the graph at all
+            System.out.print(-1);
+            System.exit(0);
+        }
+
+        // get the path
+        Node finish = graph.nodes.get(numVertices);
+        ArrayList<Integer> path = getPath(finish, start);
+
+        // print the path
+        if(path == null) {
+            System.out.print(-1);
+            System.exit(0);
+        }
+
+        System.out.print(start.name + " "); // fence post - start is not part of path
+        for(Integer i : path)
+            System.out.print(i + " ");
     }
 
-    // add a new or existing node to the graph
-    public Node addNode(int name, int edgeCost) {
+    // find the shortest path between start node and end node
+    public static void setPaths(Node start) {
 
+        if(start == null) throw new NullPointerException("start is null");
 
-        // prevent duplicates
-        for(Node listNode : nodeList)
-            if(listNode.name == name)
-                return listNode;
+        PriorityQueue<Node> q = new PriorityQueue<>();
+        q.add(start);
 
-        Node n = new Node(name);
-        nodeList.add(n);
-        return n;
+        while(!q.isEmpty()) {
+            Node n = q.poll();
+            if(!n.visited) {
+                n.visited = true;
 
+                // Visit all connected nodes from n
+                for (Edge e : n.edges) {
+                    Node connected = e.n;
+                    int costWithCurrEdge = n.cost + e.cost;
+
+                    // found better path
+                    if (costWithCurrEdge < connected.cost) {
+                        q.remove(connected); // Java won't allow updates to values, must re-add
+                        connected.cost = costWithCurrEdge;
+                        connected.previous = n;
+                        q.add(connected);
+                    }
+                }
+            }
+        }
     }
 
-    public static Node getNode(int name, ArrayList<Node> nodeList) {
-        for(Node n : nodeList)
-            if(n.name == name)
-                return n;
+    // get path from start node to given node
+    public static ArrayList<Integer> getPath(Node finish, Node start) {
+
+        ArrayList<Integer> path = new ArrayList<>();
+
+        // go backwards through the list
+        while(finish != null) {
+            path.add(finish.name);
+            finish = finish.previous;
+
+            if((finish != null) && (finish.name == start.name)) {
+                Collections.reverse(path);
+                return path;
+            }
+        }
+
+        // no path exists
         return null;
     }
 
+    public Node addNode(int name) {
+        if(!nodes.containsKey(name))
+            nodes.put(name, new Node(name));
+        return nodes.get(name);
+    }
 }
