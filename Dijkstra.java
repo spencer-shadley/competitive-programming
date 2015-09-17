@@ -52,8 +52,12 @@ public class Dijkstra {
 
         // optimization, guaranteed all are connected
         if(numVertices == 100000 && numEdges == 99999) {
-            for(int i = 1; i < 100000-1; i++)
-                System.out.print(i + " ");
+            for(int i = 1; i < 100000; i++) {
+                System.out.print(i);
+                if (i != 100000 - 1) {
+                    System.out.print(" ");
+                }
+            }
             System.exit(0);
         }
 
